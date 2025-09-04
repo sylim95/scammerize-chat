@@ -196,6 +196,11 @@ export default function Home() {
           --good: #16a34a;
           --danger: #ef4444;
           --shadow: 0 20px 60px rgba(0,0,0,.08); /* 그림자도 라이트에 맞춰 약하게 */
+
+          --sat: env(safe-area-inset-top);
+          --sar: env(safe-area-inset-right);
+          --sab: env(safe-area-inset-bottom);
+          --sal: env(safe-area-inset-left);
         }
 
         :global(html){ color-scheme: light !important; }
@@ -215,6 +220,7 @@ export default function Home() {
         }
 
         .wrap {
+          padding-top: calc(28px + var(--sat)); 
           display: grid; place-items: center; padding: 28px 16px;
           background:
             radial-gradient(1000px 600px at -20% -20%, rgba(110,231,183,.12), transparent),
