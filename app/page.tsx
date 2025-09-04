@@ -33,14 +33,14 @@ export default function Home() {
     setError(""); setResult(""); setFile(f);
   };
 
-  const onDrop = useCallback((e: React.DragEvent) => {
+  const onDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!online) return; 
+    if (!online) return;
     const f = e.dataTransfer.files?.[0] ?? null;
     if (f) onPick(f);
   }, [online]);
-
-  const onDragOver = (e: React.DragEvent) => e.preventDefault();
+  
+  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
 
   const prettySize = useMemo(() => {
     if (!file) return "";
@@ -120,7 +120,9 @@ export default function Home() {
                 <input
                   type="file"
                   accept=".pdf,.docx,.pptx,.txt,image/*"
-                  onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    onPick(e.target.files?.[0] ?? null)
+                  }
                   hidden
                   disabled={!online}
                 />
@@ -355,10 +357,18 @@ export default function Home() {
         .danger { background: #fff5f5; color: #7f1d1d; border-color: rgba(239,68,68,.3); }
         .danger:hover { background: #fee2e2; }
         .primary {
-          background: #22c55e; border-color: rgba(22,163,74,.45); color: #ffffff; font-weight: 800;
-          box-shadow: 0 6px 26px rgba(34,197,94,.25);
+            background: #22c55e;
+            border-color: rgba(22,163,74,.45);
+            color: #ffffff;
+            font-weight: 800;
+            box-shadow: 0 6px 26px rgba(34,197,94,.25);
+            transition: filter .15s ease, background .15s ease;
         }
-        .primary:hover { filter: brightness(1.04); }
+        .primary:hover { 
+          background: #16a34a;
+          border-color: rgba(22,163,74,.6);
+          filter: none;  
+        }
 
         .work { padding: 0 16px 16px; display: grid; gap: 12px; }
 

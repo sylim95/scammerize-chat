@@ -4,18 +4,26 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import mammoth from "mammoth";
 
-// ---- Together chat/completions를 fetch로 직접 호출 ----
-async function chatCompletes({
-  model,
-  messages,
-  max_tokens,
-  temperature,
-}: {
+// --------- 타입들 ----------
+type TextPart = { type: "text"; text: string };
+type ImagePart = { type: "image_url"; image_url: { url: string } };
+type MultiModalContent = TextPart | ImagePart;
+
+type ChatMessage =
+  | { role: "system"; content: string }
+  | { role: "user"; content: string | MultiModalContent[] }
+  | { role: "assistant"; content?: string };
+
+type TogetherChoice = { message?: { role: string; content?: string } };
+type TogetherResp = { choices?: TogetherChoice[] };
+
+// --------- Together API (fetch로 직접 호출) ----------
+async function chatCompletes(input: {
   model: string;
-  messages: any[];
+  messages: ChatMessage[];
   max_tokens?: number;
   temperature?: number;
-}) {
+}): Promise<TogetherResp> {
   const resp = await fetch("https://api.together.xyz/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -23,20 +31,23 @@ async function chatCompletes({
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model,
-      messages,
-      ...(max_tokens !== undefined ? { max_tokens } : {}),
-      ...(temperature !== undefined ? { temperature } : {}),
+      model: input.model,
+      messages: input.messages,
+      ...(input.max_tokens !== undefined ? { max_tokens: input.max_tokens } : {}),
+      ...(input.temperature !== undefined ? { temperature: input.temperature } : {}),
     }),
   });
 
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) throw new Error(`${resp.status} ${JSON.stringify(data)}`);
+  const data = (await resp.json().catch(() => ({}))) as TogetherResp;
+  if (!resp.ok) {
+    // 오류 내용을 그대로 전달
+    throw new Error(`${resp.status} ${JSON.stringify(data)}`);
+  }
   return data;
 }
 
-// ---- 유틸: 텍스트 청크 ----
-function chunk(text: string, maxChars = 15000) {
+// --------- 유틸 ----------
+function chunk(text: string, maxChars = 15_000): string[] {
   const out: string[] = [];
   for (let i = 0; i < text.length; i += maxChars) out.push(text.slice(i, i + maxChars));
   return out;
@@ -85,26 +96,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ summary });
     }
 
-    // ---------- 문서 (PDF/DOCX/TXT/PPTX) ----------
+    // ---------- 문서 (PDF/DOCX/PPTX/TXT) ----------
     const ab = await file.arrayBuffer();
     const buf = Buffer.from(ab);
 
     let text = "";
+
     if (name.endsWith(".pdf") || type === "application/pdf") {
-      // pdf-parse: Turbopack 회피용 deep path 동적 임포트
-      // @ts-expect-error - no types for deep path
-      const pdf = (await import("pdf-parse/lib/pdf-parse.js")).default;
-      const parsed = await pdf(buf);
-      text = parsed.text || "";
+      const pdfMod = (await import("pdf-parse")) as {
+        default: (dataBuffer: Buffer) => Promise<{ text?: string }>;
+      };
+      const parsed = await pdfMod.default(buf);
+      text = parsed.text ?? "";
     } else if (name.endsWith(".docx")) {
       const { value } = await mammoth.extractRawText({ buffer: buf });
-      text = value || "";
+      text = value ?? "";
     } else if (name.endsWith(".pptx")) {
-      // pptx-parser는 Buffer를 받아 슬라이드 배열을 반환
-      const { parsePptx } = await import("pptx-parser");
-      const slides = await parsePptx(buf);
-      // slides: [{ text?: string, notes?: string, ... }, ...]
-      text = (slides as any[])
+      // pptx-parser의 가벼운 타입 정의
+      type PptxSlide = { text?: string; notes?: string };
+      const mod = (await import("pptx-parser")) as {
+        parsePptx: (input: Buffer | ArrayBuffer | Uint8Array) => Promise<PptxSlide[]>;
+      };
+      const slides = await mod.parsePptx(buf);
+      text = slides
         .map((s) => [s.text ?? "", s.notes ?? ""].filter(Boolean).join("\n"))
         .join("\n\n")
         .trim();
@@ -117,7 +131,9 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!text.trim()) return NextResponse.json({ error: "본문이 비어 있습니다" }, { status: 400 });
+    if (!text.trim()) {
+      return NextResponse.json({ error: "본문이 비어 있습니다" }, { status: 400 });
+    }
 
     // 길이에 따라: 원샷 또는 청크 → 통합
     const approxTokens = Math.ceil(text.length / 4);
@@ -131,11 +147,11 @@ export async function POST(req: Request) {
         messages: [
           {
             role: "system",
-            content: "문서를 구조적으로 요약하라. 핵심 요지, 근거/수치, 한계/주의점을 항목화하라.",
+            content: "문서를 구조적으로 요약하라. 핵심 요지, 근거/수치, 한계/주의점을 항목화하라. 가급적 1000자 이내로 요약하라.",
           },
           { role: "user", content: `문서 일부(${i + 1}/${parts.length})를 한국어로 간결히 요약:\n\n${part}` },
         ],
-        max_tokens: 800,
+        max_tokens: 1300,
         temperature: 0.2,
       });
       partials.push(r.choices?.[0]?.message?.content ?? "");
@@ -153,15 +169,17 @@ export async function POST(req: Request) {
           },
           { role: "user", content: partials.join("\n\n---\n\n") },
         ],
-        max_tokens: 1000,
+        max_tokens: 1100,
         temperature: 0.2,
       });
       summary = r2.choices?.[0]?.message?.content ?? summary;
     }
 
     return NextResponse.json({ summary });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const message =
+      e instanceof Error ? e.message : typeof e === "string" ? e : "internal error";
     console.error(e);
-    return NextResponse.json({ error: e?.message ?? "internal error" }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
