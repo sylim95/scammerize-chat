@@ -40,7 +40,6 @@ async function chatCompletes(input: {
 
   const data = (await resp.json().catch(() => ({}))) as TogetherResp;
   if (!resp.ok) {
-    // 오류 내용을 그대로 전달
     throw new Error(`${resp.status} ${JSON.stringify(data)}`);
   }
   return data;
@@ -103,21 +102,23 @@ export async function POST(req: Request) {
     let text = "";
 
     if (name.endsWith(".pdf") || type === "application/pdf") {
-      const pdfMod = (await import("pdf-parse")) as {
-        default: (dataBuffer: Buffer) => Promise<{ text?: string }>;
-      };
-      const parsed = await pdfMod.default(buf);
+      const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default as (
+        dataBuffer: Buffer
+      ) => Promise<{ text?: string }>;
+      const parsed = await pdfParse(buf);
       text = parsed.text ?? "";
     } else if (name.endsWith(".docx")) {
       const { value } = await mammoth.extractRawText({ buffer: buf });
       text = value ?? "";
-    } else if (name.endsWith(".pptx")) {
-      // pptx-parser의 가벼운 타입 정의
-      type PptxSlide = { text?: string; notes?: string };
-      const mod = (await import("pptx-parser")) as {
-        parsePptx: (input: Buffer | ArrayBuffer | Uint8Array) => Promise<PptxSlide[]>;
+    } else if (
+      name.endsWith(".pptx") ||
+      type === "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    ) {
+      // 기존과 동일: pptx-parser 사용
+      const { parsePptx } = (await import("pptx-parser")) as {
+        parsePptx: (input: Buffer | ArrayBuffer | Uint8Array) => Promise<Array<{ text?: string; notes?: string }>>;
       };
-      const slides = await mod.parsePptx(buf);
+      const slides = await parsePptx(buf);
       text = slides
         .map((s) => [s.text ?? "", s.notes ?? ""].filter(Boolean).join("\n"))
         .join("\n\n")
@@ -147,7 +148,8 @@ export async function POST(req: Request) {
         messages: [
           {
             role: "system",
-            content: "문서를 구조적으로 요약하라. 핵심 요지, 근거/수치, 한계/주의점을 항목화하라. 가급적 1000자 이내로 요약하라.",
+            content:
+              "문서를 구조적으로 요약하라. 핵심 요지, 근거/수치, 한계/주의점을 항목화하라. 가급적 1000자 이내로 요약하라.",
           },
           { role: "user", content: `문서 일부(${i + 1}/${parts.length})를 한국어로 간결히 요약:\n\n${part}` },
         ],

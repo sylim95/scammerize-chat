@@ -429,16 +429,10 @@ export default function Home() {
         .summary.markdown :global(h2){ font-size: 18px; }
         .summary.markdown :global(h3){ font-size: 16px; }
 
-        .summary.markdown :global(p){
-          margin: 8px 0;
-        }
-
         .summary.markdown :global(ul),
         .summary.markdown :global(ol){
-          margin: 8px 0 8px 20px;
           padding-left: 16px;
         }
-        .summary.markdown :global(li){ margin: 4px 0; }
 
         .summary.markdown :global(strong){ font-weight: 700; }
         .summary.markdown :global(code){
