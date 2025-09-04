@@ -3,6 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+type ApiOk = { summary: string };
+type ApiErr = { error?: string };
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState("");
@@ -35,7 +38,7 @@ export default function Home() {
     if (!online) return; 
     const f = e.dataTransfer.files?.[0] ?? null;
     if (f) onPick(f);
-  }, []);
+  }, [online]);
 
   const onDragOver = (e: React.DragEvent) => e.preventDefault();
 
@@ -52,11 +55,19 @@ export default function Home() {
 
     try {
       const res = await fetch("/api/chat", { method: "POST", body: fd });
-      const data = await res.json().catch(() => ({} as any));
-      if (!res.ok) setError(data?.error || "요약 실패");
+      let raw: unknown;
+      try {
+        raw = await res.json();
+      } catch {
+        raw = {};
+      }
+      const data = raw as Partial<ApiOk & ApiErr>;
+
+      if (!res.ok) setError(data.error || "요약 실패");
       else setResult(data.summary || "");
     } catch (e: any) {
-      setError(e?.message || "네트워크 오류");
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg || "네트워크 오류");
     } finally { setLoading(false); }
   };
 
