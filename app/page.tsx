@@ -65,9 +65,9 @@ export default function Home() {
 
       if (!res.ok) setError(data.error || "요약 실패");
       else setResult(data.summary || "");
-    } catch (e: any) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg || "네트워크 오류");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : typeof err === "string" ? err : "네트워크 오류";
+      setError(msg);
     } finally { setLoading(false); }
   };
 
