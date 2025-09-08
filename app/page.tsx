@@ -26,6 +26,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  
+  const didSetupRef = useRef(false);
+  const interstitialReadyRef = useRef(false);
+  const lastShownAtRef = useRef(0);
+  const subsRef = useRef<PluginListenerHandle[]>([]);
+  const appSubRef = useRef<PluginListenerHandle | null>(null);
 
   const [online, setOnline] = useState(true);
 
@@ -42,19 +48,11 @@ export default function Home() {
   
     const isNative = Capacitor.isNativePlatform();
   
-    // StrictMode 중복 실행 방지
-    const didSetupRef = useRef(false);
-    const interstitialReadyRef = useRef(false);
-    const lastShownAtRef = useRef(0);
     const MIN_INTERVAL_MS = 30_000;
   
     // 테스트 ID
     const INTERSTITIAL_TEST_ID = 'ca-app-pub-3940256099942544/4411468910';
     const BANNER_TEST_ID = 'ca-app-pub-3940256099942544/2934735716';
-  
-    // 리스너 핸들 저장
-    const subsRef = useRef<PluginListenerHandle[]>([]);
-    const appSubRef = useRef<PluginListenerHandle | null>(null);
   
     const loadInterstitial = async () => {
       try {
