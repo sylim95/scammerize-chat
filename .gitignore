@@ -53,3 +53,6 @@ ios/Pods/
 ios/*.xcworkspace/xcuserdata/
 ios/**/xcuserdata/
 *.xcuserstate
+android
+ios
+capacitor.config.ts
