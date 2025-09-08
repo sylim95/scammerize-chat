@@ -77,12 +77,16 @@ export default function Home() {
           await AdMob.requestTrackingAuthorization();
         }
   
-        const consentInfo = await AdMob.requestConsentInfo();
-        if (consentInfo.isConsentFormAvailable &&
-            consentInfo.status === AdmobConsentStatus.REQUIRED) {
-          await AdMob.showConsentForm();
+        try {
+          const consentInfo = await AdMob.requestConsentInfo();
+          if (consentInfo.isConsentFormAvailable &&
+              consentInfo.status === AdmobConsentStatus.REQUIRED) {
+            await AdMob.showConsentForm();
+          }
+        } catch (e) {
+          console.log('[AdMob] Consent check skipped:', e);
         }
-  
+        
         // 배너 상시 표시
         await AdMob.showBanner({
           adId: BANNER_TEST_ID,
