@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Onboarding from "./components/onboarding";
+import { StatusBar, Style } from "@capacitor/status-bar";
+import { Capacitor } from "@capacitor/core";
 
 type ApiOk = { summary: string };
 type ApiErr = { error?: string };
@@ -24,6 +26,15 @@ export default function Home() {
     const onDown = () => setOnline(false);
     const seen = localStorage.getItem("seenOnboarding");
     if (!seen) setShowOnboarding(true);
+
+    (async () => {
+      try {
+        if (Capacitor.isNativePlatform()) {
+          await StatusBar.setOverlaysWebView({ overlay: false });
+          await StatusBar.setStyle({ style: Style.Dark });
+        }
+      } catch { /* no-op */ }
+    }) ();
 
     window.addEventListener("online", onUp);
     window.addEventListener("offline", onDown);
@@ -231,7 +242,7 @@ export default function Home() {
         }
 
         .wrap {
-          padding: calc(28px + var(--sat)) 16px 28px 16px;
+          padding: 28px 16px;
           display: grid; 
           place-items: center;
           background:

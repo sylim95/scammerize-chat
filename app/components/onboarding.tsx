@@ -108,8 +108,14 @@ export default function Onboarding({
         @keyframes pop { from { transform: scale(.98); opacity:.0 } to { transform: scale(1); opacity:1 } }
 
         .ob-skip {
-          position: absolute; top: 10px; right: 12px;
-          background: transparent; border: 0; color: var(--muted,#6b7280); cursor: pointer;
+          position: absolute; 
+          top: 10px; 
+          right: 12px;
+          background: transparent; 
+          border: 0; 
+          color: var(--muted,#6b7280); 
+          cursor: pointer;
+          font-size: 11px;
         }
         .ob-viewport { overflow: hidden; width: 100%; margin-top: 12px; }
         .ob-track { display: flex; transition: transform .35s ease; width: 100%; }
