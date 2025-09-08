@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import Onboarding from "./components/onboarding";
 
 type ApiOk = { summary: string };
 type ApiErr = { error?: string };
@@ -12,6 +13,7 @@ export default function Home() {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const [online, setOnline] = useState(true);
 
@@ -20,6 +22,8 @@ export default function Home() {
 
     const onUp = () => setOnline(true);
     const onDown = () => setOnline(false);
+    const seen = localStorage.getItem("seenOnboarding");
+    if (!seen) setShowOnboarding(true);
 
     window.addEventListener("online", onUp);
     window.addEventListener("offline", onDown);
@@ -84,6 +88,11 @@ export default function Home() {
     a.href = url; a.download = "summary.md"; a.click();
     URL.revokeObjectURL(url);
   };
+
+  const closeOnboarding = () => {
+    localStorage.setItem("seenOnboarding", "1");
+    setShowOnboarding(false);
+  }
 
   return (
     <div className="wrap">
@@ -177,6 +186,8 @@ export default function Home() {
         </section>
       </main>
 
+      {showOnboarding && <Onboarding onClose={closeOnboarding} />}
+
       {/* ===== 색상만 조정 (레이아웃/hover 그대로) ===== */}
       <style jsx>{`
         :global(:root) {
@@ -220,8 +231,9 @@ export default function Home() {
         }
 
         .wrap {
-          padding-top: calc(28px + var(--sat)); 
-          display: grid; place-items: center; padding: 28px 16px;
+          padding: calc(28px + var(--sat)) 16px 28px 16px;
+          display: grid; 
+          place-items: center;
           background:
             radial-gradient(1000px 600px at -20% -20%, rgba(110,231,183,.12), transparent),
             radial-gradient(1000px 600px at 120% -20%, rgba(110,195,255,.10), transparent),
