@@ -24,6 +24,7 @@
     "together-ai": "^0.22.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^7.4.3",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
