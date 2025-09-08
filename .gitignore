@@ -56,3 +56,10 @@ ios/**/xcuserdata/
 android
 ios
 capacitor.config.ts
+
+# capacitor/ionic auto-generated icons
+resources/
+icons/
+android/app/src/main/res/mipmap-*/
+ios/App/App/Assets.xcassets/AppIcon.appiconset/
+public/manifest.webmanifest
