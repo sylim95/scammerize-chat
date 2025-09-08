@@ -114,8 +114,14 @@ export default function Home() {
           <div className="infoWrap">
             <InfoIcon />
             <span className="tooltip">
-              지원 포맷: PDF · DOCX · PPTX · TXT · 이미지(PNG/JPG/WEBP)
+              지원 포맷: PDF·DOCX·PPTX·TXT·이미지(PNG/JPG/WEBP)
             </span>
+            <button onClick={() => { 
+                localStorage.removeItem("seenOnboarding"); 
+                setShowOnboarding(true); 
+              }}>
+                온보딩 다시보기
+            </button>
           </div>
         </div>
         <div className="toolbar">
