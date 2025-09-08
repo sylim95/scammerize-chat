@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import Onboarding from "./components/onboarding";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { Capacitor } from "@capacitor/core";
+import { AdMob, BannerAdSize, BannerAdPosition, AdmobConsentStatus } from '@capacitor-community/admob';
 
 type ApiOk = { summary: string };
 type ApiErr = { error?: string };
@@ -21,26 +22,58 @@ export default function Home() {
 
   useEffect(() => {
     setOnline(navigator.onLine);
-
+  
     const onUp = () => setOnline(true);
     const onDown = () => setOnline(false);
+  
     const seen = localStorage.getItem("seenOnboarding");
     if (!seen) setShowOnboarding(true);
-
+  
+    const isNative = Capacitor.isNativePlatform();
+  
     (async () => {
       try {
-        if (Capacitor.isNativePlatform()) {
+        if (isNative) {
           await StatusBar.setOverlaysWebView({ overlay: false });
           await StatusBar.setStyle({ style: Style.Dark });
+  
+          // AdMob 초기화
+          await AdMob.initialize();
+  
+          // ATT 상태 확인 후 필요 시 요청
+          const tracking = await AdMob.trackingAuthorizationStatus();
+          if (tracking.status === "notDetermined") {
+            await AdMob.requestTrackingAuthorization();
+          }
+  
+          // (GDPR/EEA) UMP 동의 확인 및 필요 시 폼 표시
+          const consentInfo = await AdMob.requestConsentInfo();
+          if (consentInfo.isConsentFormAvailable &&
+              consentInfo.status === AdmobConsentStatus.REQUIRED) {
+            await AdMob.showConsentForm();
+          }
+  
+          // 배너 표시 (테스트 광고 단위)
+          await AdMob.showBanner({
+            adId: "ca-app-pub-3940256099942544/2934735716", // iOS 테스트 배너
+            adSize: BannerAdSize.ADAPTIVE_BANNER,
+            position: BannerAdPosition.BOTTOM_CENTER,
+          });
         }
-      } catch { /* no-op */ }
-    }) ();
-
+      } catch (e) {
+        console.debug("[AdMob]", e);
+      }
+    })();
+  
     window.addEventListener("online", onUp);
     window.addEventListener("offline", onDown);
+  
     return () => {
       window.removeEventListener("online", onUp);
       window.removeEventListener("offline", onDown);
+      if (isNative) {
+        AdMob.removeBanner().catch(() => {});
+      }
     };
   }, []);
 
