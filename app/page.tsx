@@ -4,8 +4,17 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Onboarding from "./components/onboarding";
 import { StatusBar, Style } from "@capacitor/status-bar";
-import { Capacitor } from "@capacitor/core";
-import { AdMob, BannerAdSize, BannerAdPosition, AdmobConsentStatus } from '@capacitor-community/admob';
+import { Capacitor, PluginListenerHandle } from "@capacitor/core";
+import { App, AppState } from '@capacitor/app';
+import {
+  AdMob,
+  BannerAdSize,
+  BannerAdPosition,
+  AdmobConsentStatus,
+  InterstitialAdPluginEvents,
+  AdLoadInfo,
+  AdMobError, 
+} from '@capacitor-community/admob';
 
 type ApiOk = { summary: string };
 type ApiErr = { error?: string };
@@ -21,56 +30,139 @@ export default function Home() {
   const [online, setOnline] = useState(true);
 
   useEffect(() => {
+    // 네트워크 상태 표시용
     setOnline(navigator.onLine);
-  
     const onUp = () => setOnline(true);
     const onDown = () => setOnline(false);
+    window.addEventListener('online', onUp);
+    window.addEventListener('offline', onDown);
   
-    const seen = localStorage.getItem("seenOnboarding");
+    const seen = localStorage.getItem('seenOnboarding');
     if (!seen) setShowOnboarding(true);
   
     const isNative = Capacitor.isNativePlatform();
   
-    (async () => {
+    // StrictMode 중복 실행 방지
+    const didSetupRef = useRef(false);
+    const interstitialReadyRef = useRef(false);
+    const lastShownAtRef = useRef(0);
+    const MIN_INTERVAL_MS = 30_000;
+  
+    // 테스트 ID
+    const INTERSTITIAL_TEST_ID = 'ca-app-pub-3940256099942544/4411468910';
+    const BANNER_TEST_ID = 'ca-app-pub-3940256099942544/2934735716';
+  
+    // 리스너 핸들 저장
+    const subsRef = useRef<PluginListenerHandle[]>([]);
+    const appSubRef = useRef<PluginListenerHandle | null>(null);
+  
+    const loadInterstitial = async () => {
       try {
-        if (isNative) {
-          await StatusBar.setOverlaysWebView({ overlay: false });
-          await StatusBar.setStyle({ style: Style.Dark });
-  
-          // AdMob 초기화
-          await AdMob.initialize();
-  
-          // ATT 상태 확인 후 필요 시 요청
-          const tracking = await AdMob.trackingAuthorizationStatus();
-          if (tracking.status === "notDetermined") {
-            await AdMob.requestTrackingAuthorization();
-          }
-  
-          // (GDPR/EEA) UMP 동의 확인 및 필요 시 폼 표시
-          const consentInfo = await AdMob.requestConsentInfo();
-          if (consentInfo.isConsentFormAvailable &&
-              consentInfo.status === AdmobConsentStatus.REQUIRED) {
-            await AdMob.showConsentForm();
-          }
-  
-          // 배너 표시 (테스트 광고 단위)
-          await AdMob.showBanner({
-            adId: "ca-app-pub-3940256099942544/2934735716", // iOS 테스트 배너
-            adSize: BannerAdSize.ADAPTIVE_BANNER,
-            position: BannerAdPosition.BOTTOM_CENTER,
-          });
-        }
+        await AdMob.prepareInterstitial({ adId: INTERSTITIAL_TEST_ID });
       } catch (e) {
-        console.debug("[AdMob]", e);
+        console.debug('[AdMob] prepareInterstitial error', e);
       }
-    })();
+    };
   
-    window.addEventListener("online", onUp);
-    window.addEventListener("offline", onDown);
+    const setup = async () => {
+      if (!isNative || didSetupRef.current) return;
+      didSetupRef.current = true;
+  
+      try {
+        await StatusBar.setOverlaysWebView({ overlay: false });
+        await StatusBar.setStyle({ style: Style.Dark });
+  
+        await AdMob.initialize();
+  
+        const tracking = await AdMob.trackingAuthorizationStatus();
+        if (tracking.status === 'notDetermined') {
+          await AdMob.requestTrackingAuthorization();
+        }
+  
+        const consentInfo = await AdMob.requestConsentInfo();
+        if (consentInfo.isConsentFormAvailable &&
+            consentInfo.status === AdmobConsentStatus.REQUIRED) {
+          await AdMob.showConsentForm();
+        }
+  
+        // 배너 상시 표시
+        await AdMob.showBanner({
+          adId: BANNER_TEST_ID,
+          adSize: BannerAdSize.ADAPTIVE_BANNER,
+          position: BannerAdPosition.BOTTOM_CENTER,
+        });
+  
+        // 전면 먼저 프리로드
+        await loadInterstitial();
+  
+        // 이벤트 등록 (await로 핸들 보관)
+        subsRef.current.push(
+          await AdMob.addListener(InterstitialAdPluginEvents.Loaded, (_info: AdLoadInfo) => {
+            interstitialReadyRef.current = true;
+          })
+        );
+        subsRef.current.push(
+          await AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, (_err: AdMobError) => {
+            interstitialReadyRef.current = false;
+          })
+        );
+        subsRef.current.push(
+          await AdMob.addListener(InterstitialAdPluginEvents.Dismissed, async () => {
+            interstitialReadyRef.current = false;
+            await loadInterstitial();
+          })
+        );
+        subsRef.current.push(
+          await AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, async (_err: AdMobError) => {
+            interstitialReadyRef.current = false;
+            await loadInterstitial();
+          })
+        );
+  
+        // 앱 포그라운드 복귀 시 전면 광고 노출
+        appSubRef.current = await App.addListener('appStateChange', async (state: AppState) => {
+          if (!state.isActive) return;
+  
+          const now = Date.now();
+          if (now - lastShownAtRef.current < MIN_INTERVAL_MS) {
+            if (!interstitialReadyRef.current) await loadInterstitial();
+            return;
+          }
+  
+          if (interstitialReadyRef.current) {
+            try {
+              await AdMob.showInterstitial();
+              lastShownAtRef.current = Date.now();
+              // 닫히면 Dismissed 이벤트에서 다시 프리로드
+            } catch {
+              interstitialReadyRef.current = false;
+              await loadInterstitial();
+            }
+          } else {
+            await loadInterstitial();
+          }
+        });
+      } catch (e) {
+        console.debug('[AdMob setup]', e);
+      }
+    };
+  
+    // 실행
+    setup();
   
     return () => {
-      window.removeEventListener("online", onUp);
-      window.removeEventListener("offline", onDown);
+      window.removeEventListener('online', onUp);
+      window.removeEventListener('offline', onDown);
+  
+      // 리스너 해제
+      subsRef.current.forEach(h => h.remove());
+      subsRef.current = [];
+  
+      if (appSubRef.current) {
+        appSubRef.current.remove();
+        appSubRef.current = null;
+      }
+  
       if (isNative) {
         AdMob.removeBanner().catch(() => {});
       }
