@@ -489,8 +489,15 @@ export default function Home() {
         .hint { color: var(--muted); font-size: 12px; }
 
         .pick {
-          display: inline-block; margin-top: 4px; padding: 6px 14px; border-radius: 10px;
-          background: #0f172a; border: 1px solid #0f172a; color: #fff; cursor: pointer;
+          display: inline-block; 
+          margin-top: 4px; 
+          padding: 6px 14px; 
+          border-radius: 10px;
+          background: #0f172a; 
+          border: 1px solid #0f172a; 
+          color: #fff; 
+          cursor: pointer;
+          font-size: 13px;
         }
         .pick:hover { background: #182235; }
         .pick.disabled {
