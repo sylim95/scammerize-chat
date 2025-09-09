@@ -86,7 +86,7 @@ export default function Home() {
         } catch (e) {
           console.log('[AdMob] Consent check skipped:', e);
         }
-        
+
         // 배너 상시 표시
         await AdMob.showBanner({
           adId: BANNER_TEST_ID,
@@ -375,7 +375,7 @@ export default function Home() {
         }
 
         .wrap {
-          padding: 28px 16px;
+          padding: calc(28px + env(safe-area-inset-top)) 16px 28px 16px;
           display: grid; 
           place-items: center;
           background:
