@@ -17,6 +17,28 @@ type ChatMessage =
 type TogetherChoice = { message?: { role: string; content?: string } };
 type TogetherResp = { choices?: TogetherChoice[] };
 
+async function chatCompletesRetry(params: {
+  model: string;
+  messages: ChatMessage[];
+  max_tokens?: number;
+  temperature?: number;
+}, tries = 2): Promise<TogetherResp> {
+  let lastErr: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await chatCompletes(params);
+    } catch (e: any) {
+      lastErr = e;
+      // 5xx/일시 오류만 재시도하는 가드(원하면 429도 포함)
+      const msg = String(e?.message ?? "");
+      const isTransient = /(^5\d\d)|("code":\s*"(rate_limit|server_error)")/i.test(msg);
+      if (!isTransient || i === tries - 1) break;
+      await new Promise(r => setTimeout(r, 300 * (i + 1))); // 0.3s, 0.6s
+    }
+  }
+  throw lastErr;
+}
+
 // --------- Together API (fetch로 직접 호출) ----------
 async function chatCompletes(input: {
   model: string;
@@ -40,9 +62,44 @@ async function chatCompletes(input: {
 
   const data = (await resp.json().catch(() => ({}))) as TogetherResp;
   if (!resp.ok) {
+    console.error("[Together error]", resp.status, data);
     throw new Error(`${resp.status} ${JSON.stringify(data)}`);
   }
   return data;
+}
+
+// --------- 이미지 전처리 (동적 import) ----------
+async function preprocessImage(buf: Buffer, mime: string): Promise<{ out: Buffer; outMime: string }> {
+  try {
+    const sharp = (await import("sharp")).default;
+    const image = sharp(buf);
+    const meta = await image.metadata();
+
+    // 너무 큰 이미지만 다운스케일 (가로/세로 최대 2048)
+    const MAX = 2048;
+    const needResize =
+      (meta.width && meta.width > MAX) || (meta.height && meta.height > MAX);
+
+    let pipeline = needResize
+      ? image.resize({ width: MAX, height: MAX, fit: "inside", withoutEnlargement: true })
+      : image;
+
+    // 포맷 유지하면서 무난한 옵션으로 재인코딩
+    if (mime.includes("png") || meta.format === "png") {
+      const out = await pipeline.png({ compressionLevel: 7 }).toBuffer();
+      return { out, outMime: "image/png" };
+    } else if (mime.includes("webp") || meta.format === "webp") {
+      const out = await pipeline.webp({ quality: 78 }).toBuffer();
+      return { out, outMime: "image/webp" };
+    } else {
+      const out = await pipeline.jpeg({ quality: 78 }).toBuffer();
+      return { out, outMime: "image/jpeg" };
+    }
+  } catch (e) {
+    // sharp 미존재/실패 시 원본 그대로
+    console.warn("[image preprocess skipped]", e);
+    return { out: buf, outMime: mime };
+  }
 }
 
 // --------- 유틸 ----------
@@ -74,25 +131,55 @@ export async function POST(req: Request) {
       const ab = await file.arrayBuffer();
       const buf = Buffer.from(ab);
       const mime = type || "image/jpeg";
-      const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
 
-      const r = await chatCompletes({
-        model: MODEL,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "이 이미지를 한국어로 간결히 요약해줘. 핵심 bullet 3~6개." },
-              { type: "image_url", image_url: { url: dataUrl } },
-            ],
-          },
-        ],
-        max_tokens: 600,
-        temperature: 0.2,
-      });
+      // 1) 원본 먼저 시도
+      const dataUrlOriginal = `data:${mime};base64,${buf.toString("base64")}`;
+      const userMsg = [
+        { type: "text", text: "이 이미지를 한국어로 간결히 요약해줘. 핵심 bullet 3~6개." },
+        { type: "image_url", image_url: { url: dataUrlOriginal } },
+      ] as MultiModalContent[];
 
-      const summary = r.choices?.[0]?.message?.content ?? "";
-      return NextResponse.json({ summary });
+      try {
+        const r1 = await chatCompletesRetry({
+          model: MODEL,
+          messages: [{ role: "user", content: userMsg }],
+          max_tokens: 600,
+          temperature: 0.2,
+        });
+        const summary = r1.choices?.[0]?.message?.content?.trim() ?? "";
+        if (!summary) {
+          return NextResponse.json({ error: "요약 생성에 실패했습니다. 다른 파일로 시도해 주세요." }, { status: 502 });
+        }
+        return NextResponse.json({ summary });
+      } catch (e) {
+        console.warn("[image original failed, retry with preprocess]", e);
+      }
+
+      // 2) 실패 시 전처리(다운스케일/재인코딩) 후 재시도
+      const { out, outMime } = await preprocessImage(buf, mime);
+      const dataUrlPre = `data:${outMime};base64,${out.toString("base64")}`;
+      const userMsgPre = [
+        { type: "text", text: "이 이미지를 한국어로 간결히 요약해줘. 핵심 bullet 3~6개." },
+        { type: "image_url", image_url: { url: dataUrlPre } },
+      ] as MultiModalContent[];
+
+      try {
+        const r2 = await chatCompletes({
+          model: MODEL,
+          messages: [{ role: "user", content: userMsgPre }],
+          max_tokens: 600,
+          temperature: 0.2,
+        });
+        const summary = r2.choices?.[0]?.message?.content?.trim() ?? "";
+        if (!summary) {
+          return NextResponse.json({ error: "요약 생성에 실패했습니다. 다른 파일로 시도해 주세요." }, { status: 502 });
+        }
+        return NextResponse.json({ summary });
+      } catch (e) {
+        console.error("[image preprocess retry failed]", e);
+        // 사용자에게는 일반화된 메시지로 응답 (상세는 서버 로그)
+        return NextResponse.json({ error: "이미지 요약에 실패했습니다. 다른 파일로 시도해 주세요." }, { status: 502 });
+      }
     }
 
     // ---------- 문서 (PDF/DOCX/PPTX/TXT) ----------

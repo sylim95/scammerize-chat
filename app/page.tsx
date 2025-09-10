@@ -32,6 +32,7 @@ export default function Home() {
   const appSubRef = useRef<PluginListenerHandle | null>(null);
 
   const [online, setOnline] = useState(true);
+  const [loadingStage, setLoadingStage] = useState<0 | 1 | 2>(0); 
 
   const INTERSTITIAL_ID =
         String(process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL ??
@@ -182,6 +183,14 @@ export default function Home() {
     setLoading(true); setError(""); setResult("");
     const fd = new FormData(); fd.append("file", file);
 
+    // 지연 문구 타이머
+    const t1 = setTimeout(() => setLoadingStage(1), 3000);   // 3s
+    const t2 = setTimeout(() => setLoadingStage(2), 12000);  // 12s
+
+    // 30초 타임아웃 Abort
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
       const res = await fetch("/api/chat", { method: "POST", body: fd });
       let raw: unknown;
@@ -192,12 +201,23 @@ export default function Home() {
       }
       const data = raw as Partial<ApiOk & ApiErr>;
 
-      if (!res.ok) setError(data.error || "요약 실패");
+      if (!res.ok) alert(data?.error || "요약에 실패했습니다. 잠시 후 다시 시도해 주세요.");
       else setResult(data.summary || "");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : typeof err === "string" ? err : "네트워크 오류";
-      setError(msg);
-    } finally { setLoading(false); }
+      const isAbort =
+      err instanceof DOMException && err.name === "AbortError";
+      if (isAbort) {
+        alert("처리가 지연되어 연결을 종료했어요. 다시 시도해 주세요.");
+      } else {
+        alert("네트워크 오류가 발생했습니다. 연결을 확인해 주세요.");
+      }
+    } finally { 
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(timeoutId);
+      setLoading(false);
+      setLoadingStage(0); 
+    }
   };
 
   const copyResult = async () => {
@@ -290,7 +310,15 @@ export default function Home() {
                 </ReactMarkdown>
               </article>
             ) : (
-              <div className="placeholder">{loading ? "요약 중입니다..." : "여기에 결과가 표시됩니다."}</div>
+              <div className="placeholder">
+                {loading
+                  ? (loadingStage === 0
+                      ? "요약 중입니다..."
+                      : loadingStage === 1
+                        ? "조금 더 걸리고 있어요. 큰 파일이거나 서버가 잠시 바쁠 수 있어요."
+                        : "서버가 혼잡합니다. 곧 끝나지 않으면 잠시 후 다시 시도해 주세요.")
+                  : "여기에 결과가 표시됩니다."}
+              </div>
             )}
           </div>
 
