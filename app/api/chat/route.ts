@@ -27,10 +27,10 @@ async function chatCompletesRetry(params: {
   for (let i = 0; i < tries; i++) {
     try {
       return await chatCompletes(params);
-    } catch (e: any) {
+    } catch (e: unknown) {
       lastErr = e;
-      // 5xx/일시 오류만 재시도하는 가드(원하면 429도 포함)
-      const msg = String(e?.message ?? "");
+      // 5xx/일시 오류만 재시도하는 가드
+      const msg = e instanceof Error ? e.message : String(e);
       const isTransient = /(^5\d\d)|("code":\s*"(rate_limit|server_error)")/i.test(msg);
       if (!isTransient || i === tries - 1) break;
       await new Promise(r => setTimeout(r, 300 * (i + 1))); // 0.3s, 0.6s
@@ -80,7 +80,7 @@ async function preprocessImage(buf: Buffer, mime: string): Promise<{ out: Buffer
     const needResize =
       (meta.width && meta.width > MAX) || (meta.height && meta.height > MAX);
 
-    let pipeline = needResize
+    const pipeline = needResize
       ? image.resize({ width: MAX, height: MAX, fit: "inside", withoutEnlargement: true })
       : image;
 
