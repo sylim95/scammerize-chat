@@ -315,7 +315,7 @@ export default function Home() {
                   ? (loadingStage === 0
                       ? "요약 중입니다..."
                       : loadingStage === 1
-                        ? "조금 더 걸리고 있어요. 큰 파일이거나 서버가 잠시 바쁠 수 있어요."
+                        ? "조금 더 걸리고 있어요..."
                         : "서버가 혼잡합니다. 곧 끝나지 않으면 잠시 후 다시 시도해 주세요.")
                   : "여기에 결과가 표시됩니다."}
               </div>
@@ -560,7 +560,7 @@ export default function Home() {
           padding: 18px; display: grid; align-items: start; color: var(--text);
           box-shadow: var(--shadow);
         }
-        .placeholder { color: var(--muted); text-align: center; margin: 24px 0; }
+        .placeholder { color: var(--muted); text-align: center; margin: 24px 0; font-size: 12px; }
         .summary { white-space: pre-wrap; line-height: 1.65; font-size: 15px; color: var(--text); }
 
         /* 하단 바: 라이트 카드 */
