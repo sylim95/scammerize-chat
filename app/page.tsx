@@ -33,6 +33,14 @@ export default function Home() {
 
   const [online, setOnline] = useState(true);
 
+  // ===== env-based Ad Unit resolver =====
+  const IS_PROD = process.env.NODE_ENV === 'production';
+
+  const INTERSTITIAL_ID =
+    String(IS_PROD
+      ? process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL
+      : process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL_TEST);
+
   useEffect(() => {
     // 네트워크 상태 표시용
     setOnline(navigator.onLine);
@@ -48,12 +56,9 @@ export default function Home() {
   
     const MIN_INTERVAL_MS = 30_000;
   
-    // 테스트 ID
-    const INTERSTITIAL_TEST_ID = 'ca-app-pub-3940256099942544/4411468910';
-  
     const loadInterstitial = async () => {
       try {
-        await AdMob.prepareInterstitial({ adId: INTERSTITIAL_TEST_ID });
+        await AdMob.prepareInterstitial({ adId: INTERSTITIAL_ID });
       } catch (e) {
         console.debug('[AdMob] prepareInterstitial error', e);
       }
