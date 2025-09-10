@@ -33,13 +33,9 @@ export default function Home() {
 
   const [online, setOnline] = useState(true);
 
-  // ===== env-based Ad Unit resolver =====
-  const IS_PROD = process.env.NODE_ENV === 'production';
-
   const INTERSTITIAL_ID =
-    String(IS_PROD
-      ? process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL
-      : process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL_TEST);
+        String(process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL ??
+        process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL_TEST);
 
   useEffect(() => {
     // 네트워크 상태 표시용
