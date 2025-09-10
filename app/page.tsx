@@ -8,8 +8,6 @@ import { Capacitor, PluginListenerHandle } from "@capacitor/core";
 import { App, AppState } from '@capacitor/app';
 import {
   AdMob,
-  BannerAdSize,
-  BannerAdPosition,
   AdmobConsentStatus,
   InterstitialAdPluginEvents,
   AdLoadInfo,
@@ -52,7 +50,6 @@ export default function Home() {
   
     // 테스트 ID
     const INTERSTITIAL_TEST_ID = 'ca-app-pub-3940256099942544/4411468910';
-    const BANNER_TEST_ID = 'ca-app-pub-3940256099942544/2934735716';
   
     const loadInterstitial = async () => {
       try {
@@ -87,13 +84,6 @@ export default function Home() {
           console.log('[AdMob] Consent check skipped:', e);
         }
 
-        // 배너 상시 표시
-        await AdMob.showBanner({
-          adId: BANNER_TEST_ID,
-          adSize: BannerAdSize.ADAPTIVE_BANNER,
-          position: BannerAdPosition.BOTTOM_CENTER,
-        });
-  
         // 전면 먼저 프리로드
         await loadInterstitial();
   
@@ -163,10 +153,6 @@ export default function Home() {
       if (appSubRef.current) {
         appSubRef.current.remove();
         appSubRef.current = null;
-      }
-  
-      if (isNative) {
-        AdMob.removeBanner().catch(() => {});
       }
     };
   }, []);
@@ -243,16 +229,14 @@ export default function Home() {
             <span className="tooltip">
               지원 포맷: PDF·DOCX·PPTX·TXT·이미지(PNG/JPG/WEBP)
             </span>
-            <button onClick={() => { 
-                localStorage.removeItem("seenOnboarding"); 
-                setShowOnboarding(true); 
-              }}>
-                온보딩 다시보기
-            </button>
           </div>
         </div>
         <div className="toolbar">
-        <div className={`pill ${online ? "ok" : "bad"}`}>
+        <div className={`pill ${online ? "ok" : "bad"}`}
+            onClick={() => {
+              localStorage.removeItem("seenOnboarding");
+              setShowOnboarding(true);
+          }}>
           {online ? "연결됨" : "오프라인"}
         </div>
         </div>
