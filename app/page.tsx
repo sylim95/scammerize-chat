@@ -560,7 +560,7 @@ export default function Home() {
           padding: 18px; display: grid; align-items: start; color: var(--text);
           box-shadow: var(--shadow);
         }
-        .placeholder { color: var(--muted); text-align: center; margin: 24px 0; font-size: 12px; }
+        .placeholder { color: var(--muted); text-align: center; margin: 24px 0; font-size: 13px; }
         .summary { white-space: pre-wrap; line-height: 1.65; font-size: 15px; color: var(--text); }
 
         /* 하단 바: 라이트 카드 */
