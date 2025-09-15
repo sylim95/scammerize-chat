@@ -572,6 +572,7 @@ export default function Home() {
           appearance: none; border: 1px solid var(--border); background: #ffffff; color: var(--text);
           padding: 10px 14px; border-radius: 10px; font-size: 14px; cursor: pointer;
           transition: transform .05s ease, background .15s ease, border-color .15s ease;
+          min-width: 57px;
         }
         button:hover { background: #f6f7fb; border-color: #cfd6e1; }
         button:disabled { opacity: .55; cursor: not-allowed; }
@@ -611,6 +612,7 @@ export default function Home() {
           line-height: 1.75;
           letter-spacing: .1px;
           min-width: 0;
+          font-size: 15px;
         }
 
         /* 하단 바: 라이트 카드 */
