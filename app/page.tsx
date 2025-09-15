@@ -36,11 +36,11 @@ export default function Home() {
   const [online, setOnline] = useState(true);
   const [loadingStage, setLoadingStage] = useState<0 | 1 | 2>(0); 
 
-  const INTERSTITIAL_ID =
+  useEffect(() => {
+    const INTERSTITIAL_ID =
         String(process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL ??
         process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL_TEST);
-
-  useEffect(() => {
+        
     // 네트워크 상태 표시용
     setOnline(navigator.onLine);
     const onUp = () => setOnline(true);
@@ -189,12 +189,17 @@ export default function Home() {
     const t1 = setTimeout(() => setLoadingStage(1), 3000);   // 3s
     const t2 = setTimeout(() => setLoadingStage(2), 12000);  // 12s
 
-    // 30초 타임아웃 Abort
+    // 50초 타임아웃 Abort
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 50000);
 
     try {
-      const res = await fetch("/api/chat", { method: "POST", body: fd });
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        body: fd,
+        signal: controller.signal,
+      });
+
       let raw: unknown;
       try {
         raw = await res.json();
@@ -229,7 +234,7 @@ export default function Home() {
   };
   const downloadResult = async () => {
     if (!result) return;
-    const filename = `summary-${Date.now()}.md`;
+    const filename = `summary-${new Date().toISOString().replace(/[:]/g,'-')}.md`;
 
     if (Capacitor.isNativePlatform()) {
       try {
@@ -245,9 +250,11 @@ export default function Home() {
           directory: Directory.Documents,
         });
 
+        const shareUrl = Capacitor.convertFileSrc(uri);
+
         await Share.share({
           title: "요약 저장",
-          url: uri,
+          url: shareUrl,
         });
       } catch (e) {
         console.error("[save share error]", e);
@@ -310,7 +317,7 @@ export default function Home() {
                 기기에서 선택
                 <input
                   type="file"
-                  accept=".pdf,.docx,.pptx,.txt,image/*"
+                  accept=".pdf,.docx,.pptx,.txt,image/*,.heic,.heif"
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     onPick(e.target.files?.[0] ?? null)
                   }
@@ -592,9 +599,17 @@ export default function Home() {
           background: #ffffff; border: 1px solid var(--border); border-radius: 14px; min-height: 360px;
           padding: 18px; display: grid; align-items: start; color: var(--text);
           box-shadow: var(--shadow);
+          min-width: 0;
         }
         .placeholder { color: var(--muted); text-align: center; margin: 24px 0; font-size: 13px; }
-        .summary { white-space: pre-wrap; line-height: 1.65; font-size: 15px; color: var(--text); }
+        .summary,
+        .summary.markdown {
+          overflow-wrap: anywhere;
+          word-break: break-word;
+          hyphens: auto;
+          -webkit-hyphens: auto;
+          min-width: 0;
+        }
 
         /* 하단 바: 라이트 카드 */
         .actionBar {
@@ -664,6 +679,10 @@ export default function Home() {
           padding: 12px;
           overflow: auto;
           border: 1px solid #1f2937;
+        }
+        .summary.markdown :global(img){
+          max-width:100%;
+          height:auto;
         }
       `}</style>
     </div>
