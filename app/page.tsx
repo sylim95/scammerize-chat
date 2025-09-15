@@ -4,6 +4,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Onboarding from "./components/onboarding";
 import { StatusBar, Style } from "@capacitor/status-bar";
+import { Filesystem, Directory, Encoding } from "@capacitor/filesystem"
+import { Share } from "@capacitor/share"
 import { Capacitor, PluginListenerHandle } from "@capacitor/core";
 import { App, AppState } from '@capacitor/app';
 import {
@@ -225,13 +227,44 @@ export default function Home() {
     await navigator.clipboard.writeText(result);
     alert("요약을 복사했어요.");
   };
-  const downloadResult = () => {
+  const downloadResult = async () => {
     if (!result) return;
+    const filename = `summary-${Date.now()}.md`;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await Filesystem.writeFile({
+          path: filename,
+          data: result,
+          directory: Directory.Documents,
+          encoding: Encoding.UTF8,
+        });
+
+        const { uri } = await Filesystem.getUri({
+          path: filename,
+          directory: Directory.Documents,
+        });
+
+        await Share.share({
+          title: "요약 저장",
+          url: uri,
+        });
+      } catch (e) {
+        console.error("[save share error]", e);
+        alert("저장 중 문제가 발생했어요. 다시 시도해 주세요.");
+      }
+      return;
+    }
+
     const blob = new Blob([result], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "summary.md"; a.click();
-    URL.revokeObjectURL(url);
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const closeOnboarding = () => {
