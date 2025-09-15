@@ -232,10 +232,11 @@ export default function Home() {
     await navigator.clipboard.writeText(result);
     alert("요약을 복사했어요.");
   };
+  
   const downloadResult = async () => {
     if (!result) return;
     const filename = `summary-${new Date().toISOString().replace(/[:]/g,'-')}.md`;
-
+  
     if (Capacitor.isNativePlatform()) {
       try {
         await Filesystem.writeFile({
@@ -244,25 +245,34 @@ export default function Home() {
           directory: Directory.Documents,
           encoding: Encoding.UTF8,
         });
-
+  
         const { uri } = await Filesystem.getUri({
           path: filename,
           directory: Directory.Documents,
         });
-
+  
         const shareUrl = Capacitor.convertFileSrc(uri);
-
-        await Share.share({
+  
+        const shareResult = await Share.share({
           title: "요약 저장",
           url: shareUrl,
         });
+  
+        // 사용자가 아무 것도 선택 안 하고 닫은 경우
+        if (!shareResult.activityType) {
+          console.log("[save share canceled]");
+          return;
+        }
+  
+        console.log("[save share success]");
       } catch (e) {
         console.error("[save share error]", e);
         alert("저장 중 문제가 발생했어요. 다시 시도해 주세요.");
       }
       return;
     }
-
+  
+    // 웹용 다운로드
     const blob = new Blob([result], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
