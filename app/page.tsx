@@ -40,7 +40,7 @@ export default function Home() {
     const INTERSTITIAL_ID =
         String(process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL ??
         process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL_TEST);
-        
+
     // 네트워크 상태 표시용
     setOnline(navigator.onLine);
     const onUp = () => setOnline(true);
@@ -608,6 +608,8 @@ export default function Home() {
           word-break: break-word;
           hyphens: auto;
           -webkit-hyphens: auto;
+          line-height: 1.75;
+          letter-spacing: .1px;
           min-width: 0;
         }
 
@@ -683,6 +685,9 @@ export default function Home() {
         .summary.markdown :global(img){
           max-width:100%;
           height:auto;
+        }
+        .summary.markdown :global(p){
+          margin: 14px 0;
         }
       `}</style>
     </div>
