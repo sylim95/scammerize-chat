@@ -1,7 +1,7 @@
 # Scammerize.AI
 
 문서나 이미지를 업로드하면 자동으로 요약해주는 앱입니다. <br>
-웹은 Next.js로, 네이티브는 **Capacitor(Android/iOS)**로 동작합니다. <br>
+웹은 Next.js로, 네이티브는 **Capacitor(Android/iOS)** 로 동작합니다. <br>
 광고는 AdMob을 붙였고, 저장은 `Filesystem` / `Share` 플러그인을 사용합니다. <br>
 
 ### 실행 방법
