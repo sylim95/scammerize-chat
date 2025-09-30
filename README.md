@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Scammerize.AI
 
-## Getting Started
+문서나 이미지를 업로드하면 자동으로 요약해주는 앱입니다. <br>
+웹은 Next.js로, 네이티브는 **Capacitor(Android/iOS)**로 동작합니다. <br>
+광고는 AdMob을 붙였고, 저장은 `Filesystem` / `Share` 플러그인을 사용합니다.
 
-First, run the development server:
+### 실행 방법
 
-```bash
+**웹 (개발 서버)**
+```
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Android**
+```
+# Capacitor 초기화/동기화
+npx cap sync android
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# Android 스튜디오에서 열기
+npx cap open android
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**빌드/설치:**
+```
+cd android
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
 
-## Learn More
+**iOS**
+```
+# Capacitor 초기화/동기화
+npx cap sync ios
 
-To learn more about Next.js, take a look at the following resources:
+# Xcode에서 열기
+npx cap open ios
+```
+<br>
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- 시뮬레이터 또는 실제 기기에서 빌드 실행 가능
+- App Tracking Transparency 권한 팝업이 자동으로 뜨도록 설정됨
+<br><br>
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 환경 변수 (AdMob)
+.env 파일에 추가:
+```
+# 실제 ID
+NEXT_PUBLIC_ADMOB_INTERSTITIAL=ca-app-pub-xxxxxxxxxxxxxxxx/xxxxxxxxxx      
+# 테스트 ID 
+NEXT_PUBLIC_ADMOB_INTERSTITIAL_TEST=ca-app-pub-xxxxxxxxxxxxxxxx/xxxxxxxxxx 
+```
 
-## Deploy on Vercel
+<br><br>
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 주요 기능
+- PDF / DOCX / PPTX / TXT / 이미지 업로드 및 요약
+- 전면 광고(AdMob Interstitial) 노출
+- 네이티브 저장/공유 (`Filesystem` + `Share`)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
