@@ -275,7 +275,7 @@ export default function Home() {
   /** iOS/Android 공통 저장 + 공유 URL 반환 */
   async function saveTextCrossPlatform(filename: string, content: string): Promise<string> {
     // 1차: 플랫폼 기본 디렉터리
-    let primary = pickDefaultDir();
+    const primary = pickDefaultDir();
     await ensureDir(primary);
 
     try {
@@ -321,6 +321,10 @@ export default function Home() {
   
     if (Capacitor.isNativePlatform()) {
       try {
+        if (Capacitor.getPlatform() === "android") {
+          await ensureFsPerms();
+        }
+
         const uri = await saveTextCrossPlatform(filename, result);
         const shareUrl = Capacitor.convertFileSrc(uri); // iOS/Android 둘 다 WebView에 맞게 변환
         await Share.share({ title: "요약 저장", url: shareUrl });
