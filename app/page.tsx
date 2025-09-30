@@ -232,10 +232,30 @@ export default function Home() {
     await navigator.clipboard.writeText(result);
     alert("요약을 복사했어요.");
   };
+
+  async function ensureFsPerms() {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return;
+  
+    try {
+      const status = await Filesystem.checkPermissions();
+      const needRequest =
+        !status ||
+        (typeof status === "object" &&
+          Object.values(status).some(v => String(v) !== "granted"));
+  
+      if (needRequest) {
+        await Filesystem.requestPermissions(); // 퍼블릭 저장소 권한 요청
+      }
+    } catch {
+      try { await Filesystem.requestPermissions(); } catch {}
+    }
+  }
   
   const downloadResult = async () => {
     if (!result) return;
     const filename = `summary-${new Date().toISOString().replace(/[:]/g,'-')}.md`;
+
+    await ensureFsPerms();
   
     if (Capacitor.isNativePlatform()) {
       try {
