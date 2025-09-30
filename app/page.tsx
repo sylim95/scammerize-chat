@@ -36,6 +36,8 @@ export default function Home() {
   const [online, setOnline] = useState(true);
   const [loadingStage, setLoadingStage] = useState<0 | 1 | 2>(0); 
 
+  const SAVE_DIR = "Scammerize";
+
   useEffect(() => {
     const INTERSTITIAL_ID =
         String(process.env.NEXT_PUBLIC_ADMOB_INTERSTITIAL ??
@@ -250,43 +252,80 @@ export default function Home() {
       try { await Filesystem.requestPermissions(); } catch {}
     }
   }
+
+  function pickDefaultDir(): Directory {
+    const p = Capacitor.getPlatform();
+    if (p === "ios") return Directory.Documents;
+    if (p === "android") return Directory.Data;
+    return Directory.Data;
+  }  
+
+  async function ensureDir(dir: Directory) {
+    try {
+      await Filesystem.mkdir({
+        directory: dir,
+        path: SAVE_DIR,
+        recursive: true,
+      });
+    } catch {
+      // 이미 있거나 권한 이슈면 무시
+    }
+  }
+
+  /** iOS/Android 공통 저장 + 공유 URL 반환 */
+  async function saveTextCrossPlatform(filename: string, content: string): Promise<string> {
+    // 1차: 플랫폼 기본 디렉터리
+    let primary = pickDefaultDir();
+    await ensureDir(primary);
+
+    try {
+      await Filesystem.writeFile({
+        directory: primary,
+        path: `${SAVE_DIR}/${filename}`,
+        data: content,
+        encoding: Encoding.UTF8,
+        recursive: true,
+      });
+      const { uri } = await Filesystem.getUri({
+        directory: primary,
+        path: `${SAVE_DIR}/${filename}`,
+      });
+      return uri;
+    } catch (e) {
+      // 2차: 반대 디렉터리로 폴백 (Documents ↔ Data)
+      const fallback = primary === Directory.Data ? Directory.Documents : Directory.Data;
+      try {
+        await ensureDir(fallback);
+        await Filesystem.writeFile({
+          directory: fallback,
+          path: `${SAVE_DIR}/${filename}`,
+          data: content,
+          encoding: Encoding.UTF8,
+          recursive: true,
+        });
+        const { uri } = await Filesystem.getUri({
+          directory: fallback,
+          path: `${SAVE_DIR}/${filename}`,
+        });
+        return uri;
+      } catch (err2) {
+        console.error("[save error]", e, err2);
+        throw err2;
+      }
+    }
+  }
   
   const downloadResult = async () => {
     if (!result) return;
-    const filename = `summary-${new Date().toISOString().replace(/[:]/g,'-')}.md`;
-
-    await ensureFsPerms();
+    const filename = `summary-${new Date().toISOString().replace(/[:]/g, "-")}.md`;
   
     if (Capacitor.isNativePlatform()) {
       try {
-        await Filesystem.writeFile({
-          path: filename,
-          data: result,
-          directory: Directory.Documents,
-          encoding: Encoding.UTF8,
-        });
-  
-        const { uri } = await Filesystem.getUri({
-          path: filename,
-          directory: Directory.Documents,
-        });
-  
-        const shareUrl = Capacitor.convertFileSrc(uri);
-  
-        const shareResult = await Share.share({
-          title: "요약 저장",
-          url: shareUrl,
-        });
-  
-        // 사용자가 아무 것도 선택 안 하고 닫은 경우
-        if (!shareResult.activityType) {
-          console.log("[save share canceled]");
-          return;
-        }
-  
-        console.log("[save share success]");
+        const uri = await saveTextCrossPlatform(filename, result);
+        const shareUrl = Capacitor.convertFileSrc(uri); // iOS/Android 둘 다 WebView에 맞게 변환
+        await Share.share({ title: "요약 저장", url: shareUrl });
       } catch (e) {
-        console.error("[save share error]", e);
+        console.error("[save/share error]", e);
         alert("저장 중 문제가 발생했어요. 다시 시도해 주세요.");
       }
       return;
