@@ -326,8 +326,7 @@ export default function Home() {
         }
 
         const uri = await saveTextCrossPlatform(filename, result);
-        const shareUrl = Capacitor.convertFileSrc(uri); // iOS/Android 둘 다 WebView에 맞게 변환
-        await Share.share({ title: "요약 저장", url: shareUrl });
+        await Share.share({ title: "요약 저장", url: result });
       } catch (e) {
         console.error("[save/share error]", e);
         alert("저장 중 문제가 발생했어요. 다시 시도해 주세요.");
